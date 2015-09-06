@@ -4,47 +4,44 @@
  * MIT Licensed
  */
 
-function findOrCreatePlugin(schema, options) {
-  schema.statics.findOrCreate = function findOrCreate(conditions, doc, options, callback) {
-    if (arguments.length < 4) {
-      if (typeof options === 'function') {
-        // Scenario: findOrCreate(conditions, doc, callback)
-        callback = options;
-        options = {};
-      } else if (typeof doc === 'function') {
-        // Scenario: findOrCreate(conditions, callback);
-        callback = doc;
-        doc = {};
-        options = {};
-      }
-    }
-    var self = this;
-    this.findOne(conditions, function(err, result) {
-      if(err || result) {
-        if(options && options.upsert && !err) {
-          self.update(conditions, doc, function(err, count){
-            self.findOne(conditions, function(err, result) {
-              callback(err, result, false);
-            });
-          })
-        } else {
-          callback(err, result, false)
+/*eslint-env node, es6 */
+
+(function () {
+  "use strict";
+
+  function findOrCreatePlugin(schema) {
+    schema.statics.findOrCreate = function findOrCreate(conditions, doc, options, callback) {
+      if (arguments.length < 4) {
+        if (typeof options === "function") {
+          // Scenario: findOrCreate(conditions, doc, callback)
+          callback = options;
+          options = {};
+        } else if (typeof doc === "function") {
+          // Scenario: findOrCreate(conditions, callback);
+          callback = doc;
+          doc = {};
+          options = {};
         }
-      } else {
-        for (var key in doc) {
-         conditions[key] = doc[key]; 
-        }
-        var obj = new self(conditions)
-        obj.save(function(err) {
-          callback(err, obj, true);
-        });
       }
-    })
+
+      var opts = {
+        new: true, // return new doc if one is upserted
+        upsert: true // insert the document if it does not exist
+      };
+
+      for (var k in options) {
+        opts[k] = options[k];
+      }
+
+      return this.findOneAndUpdate(conditions, {
+        $setOnInsert: doc
+      }, opts, callback);
+    };
   }
-}
 
-/**
- * Expose `findOrCreatePlugin`.
- */
+  /**
+   * Export `findOrCreatePlugin`.
+   */
 
-module.exports = findOrCreatePlugin;
+  module.exports = findOrCreatePlugin;
+}());
